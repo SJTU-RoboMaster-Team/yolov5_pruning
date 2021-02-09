@@ -80,11 +80,12 @@ def check_git_status():
 
 
 def check_requirements(file='requirements.txt', exclude=()):
+    pass
     # Check installed dependencies meet requirements
-    import pkg_resources
-    requirements = [f'{x.name}{x.specifier}' for x in pkg_resources.parse_requirements(Path(file).open())
-                    if x.name not in exclude]
-    pkg_resources.require(requirements)  # DistributionNotFound or VersionConflict exception if requirements not met
+    # import pkg_resources
+    # requirements = [f'{x.name}{x.specifier}' for x in pkg_resources.parse_requirements(Path(file).open())
+    #                 if x.name not in exclude]
+    # pkg_resources.require(requirements)  # DistributionNotFound or VersionConflict exception if requirements not met
 
 
 def check_img_size(img_size, s=32):

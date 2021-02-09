@@ -6,6 +6,8 @@ import torch.nn as nn
 from utils.general import bbox_iou
 from utils.torch_utils import is_parallel
 
+from models.common import Sparse
+
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
     # return positive, negative label smoothing BCE targets
@@ -111,7 +113,7 @@ class ComputeLoss:
         for k in 'na', 'nc', 'nl', 'anchors':
             setattr(self, k, getattr(det, k))
 
-    def __call__(self, p, targets):  # predictions, targets, model
+    def __call__(self, p, targets, model, s):  # predictions, targets, model, sparse rate
         device = targets.device
         lcls, lbox, lobj = torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)
         tcls, tbox, indices, anchors = self.build_targets(p, targets)  # targets
@@ -157,8 +159,15 @@ class ComputeLoss:
         lcls *= self.hyp['cls']
         bs = tobj.shape[0]  # batch size
 
-        loss = lbox + lobj + lcls
-        return loss * bs, torch.cat((lbox, lobj, lcls, loss)).detach()
+        lspr = 0
+        for m in model.modules():
+            if isinstance(m, Sparse):
+                sorted_weight, index = torch.sort(torch.abs(m.weight), descending=False)
+                lspr += torch.sum(sorted_weight[:int(sorted_weight.shape[0] * 0.5)])
+        lspr *= s
+
+        loss = lbox + lobj + lcls + lspr
+        return loss * bs, torch.cat((torch.reshape(lspr, [1]), lbox, lobj, lcls, loss)).detach()
 
     def build_targets(self, p, targets):
         # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
