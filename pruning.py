@@ -121,9 +121,10 @@ def pruning_present(model, rate):
             pruning_conv_input(m.cv2, keep_input)
             thres = torch.sort(m.sp.weight.data).values[int(m.sp.weight.data.shape[0] * rate)]
             keep_output = m.sp.weight.data > thres
-            keep_output_bottleneck, keep_output_shortcut = keep_output.view(2, -1)
-            pruning_conv_output(m.cv2, keep_output_shortcut)
+            keep_output_bottleneck = keep_output[:m.cv1.conv.weight.shape[0]]
+            keep_output_shortcut = keep_output[m.cv1.conv.weight.shape[0]:]
             pruning_conv_output(m.cv1, keep_output_bottleneck)
+            pruning_conv_output(m.cv2, keep_output_shortcut)
             for _m in m.m:
                 assert isinstance(_m, Bottleneck)
                 pruning_conv_input(_m.cv1, keep_output_bottleneck)
