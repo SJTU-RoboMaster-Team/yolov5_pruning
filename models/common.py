@@ -32,9 +32,11 @@ class Sparse(nn.Module):
         self.dim = dim
 
     def forward(self, x):
-        shape = [1] * len(x.shape)
-        shape[self.dim] = self.weight.shape[0]
-        return x * self.weight.view(shape)
+        if len(self.weight.shape) != len(x.shape):
+            shape = [1] * len(x.shape)
+            shape[self.dim] = self.weight.shape[0]
+            self.weight.data = self.weight.data.view(shape)
+        return x * self.weight
 
 
 class ConvTranspose(nn.Module):

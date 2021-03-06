@@ -18,11 +18,24 @@ from models.experimental import attempt_load
 from utils.activations import Hardswish, SiLU
 from utils.general import set_logging, check_img_size
 
+
+class Export_Preprocess(nn.Module):
+    def __init__(self, model):
+        super(Export_Preprocess, self).__init__()
+        self.model = model
+
+    def forward(self, x):
+        x = x[..., (2, 1, 0)].permute(0, 3, 1, 2) / 255.
+        x = x.contiguous()
+        return self.model(x)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', type=str, default='./yolov5s.pt', help='weights path')  # from yolov5/models/
     parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='image size')  # height, width
     parser.add_argument('--batch-size', type=int, default=1, help='batch size')
+    parser.add_argument('--export-preprocess', action="store_true")
     opt = parser.parse_args()
     opt.img_size *= 2 if len(opt.img_size) == 1 else 1  # expand
     print(opt)
@@ -43,7 +56,8 @@ if __name__ == '__main__':
     # Update model
     for k, m in model.named_modules():
         m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatibility
-        if isinstance(m, models.common.Conv):  # assign export-friendly activations
+        if isinstance(m, models.common.Conv) or isinstance(m, models.common.ConvTranspose):
+            # assign export-friendly activations
             if isinstance(m.act, nn.Hardswish):
                 m.act = Hardswish()
             elif isinstance(m.act, nn.SiLU):
@@ -51,6 +65,10 @@ if __name__ == '__main__':
         # elif isinstance(m, models.yolo.Detect):
         #     m.forward = m.forward_export  # assign forward (optional)
     model.model[-1].export = True  # set Detect() layer export=True
+
+    if opt.export_preprocess:
+        img = torch.zeros([opt.batch_size, *opt.img_size, 3]).float()
+        model = Export_Preprocess(model)
     y = model(img)  # dry run
 
     # TorchScript export
